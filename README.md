@@ -1,5 +1,7 @@
 # Artist Shuffle
 
+[![CI](https://github.com/almir/artist-shuffle/actions/workflows/ci.yml/badge.svg)](https://github.com/almir/artist-shuffle/actions/workflows/ci.yml)
+
 ## Overview
 
 Artist Shuffle distributes a music collection into multiple directories while trying to spread songs by the same artist as evenly as possible.
@@ -20,7 +22,7 @@ It was designed for devices, such as many car stereos, that do not support shuff
 
 ## Requirements
 
-* Python 3.9 or newer
+* Python 3.12 or newer
 
 The script uses only the Python standard library.
 
@@ -135,7 +137,7 @@ To generate the same shuffle again later, specify a random seed:
     --execute
 ```
 
-Using the same seed and the same input files produces the same directory layout and playback order.
+Using the same seed and the same input files produces the same directory layout and playback order. The input files are sorted before shuffling, so the result does not depend on the order in which the operating system happens to list them.
 
 ## Example Output
 
@@ -169,6 +171,8 @@ The numeric prefixes determine the playback order within each directory.
 | `--files-per-directory N` | Calculate the number of directories from the requested maximum number of songs per directory. |
 | `--seed N`                | Use a fixed random seed for reproducible results.                                             |
 | `--all-files`             | Process all regular files instead of only recognized audio files.                             |
+| `--version`               | Print the version and exit.                                                                   |
+| `-h`, `--help`            | Show the full help message and exit.                                                          |
 
 ## Typical Workflow
 
@@ -196,12 +200,51 @@ The numeric prefixes determine the playback order within each directory.
 * The script spreads artists as evenly as mathematically possible.
 * If one artist has significantly more songs than the number of output directories, some directories will naturally contain multiple songs by that artist.
 * Collaborations are treated as separate artist names unless additional normalization is implemented.
+* In `copy` mode the operation is fully reversible: if it fails partway through, any directories it created are removed and your originals are left untouched.
+* In `move` mode a failure partway through cannot be undone automatically. The script prints a warning listing that some files may already have been moved. Preview with a dry run first, and consider `copy` mode if in doubt.
+
+## Development
+
+Install the development dependencies (only needed to run the tests and tooling — the tool itself needs nothing beyond the standard library):
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Install the pre-commit hooks (run once after cloning). This enforces the same checks CI runs, on every commit and push:
+
+```bash
+pre-commit install
+pre-commit install --hook-type pre-push
+```
+
+Run the test suite:
+
+```bash
+pytest
+```
+
+Lint and check formatting:
+
+```bash
+ruff check .
+ruff format --check .
+```
+
+All of these run automatically on every push and pull request via GitHub Actions across Python 3.12 and 3.13.
 
 ## Project Structure
 
 ```text
 artist-shuffle/
-├── artist-shuffle.py
+├── artist-shuffle.py        # the tool (standard library only)
+├── tests/                   # pytest test suite
+├── .github/workflows/ci.yml # lint, format check + test on Python 3.12–3.13
+├── .github/dependabot.yml   # weekly action + dependency updates
+├── .pre-commit-config.yaml  # local hooks mirroring CI
+├── .python-version          # pinned Python version for local tooling
+├── pyproject.toml           # ruff and pytest configuration
+├── requirements.txt         # development dependencies (tests + tooling)
 ├── README.md
 ├── LICENSE
 └── .gitignore

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from __future__ import annotations
-
 import argparse
 import math
 import random
@@ -9,6 +7,8 @@ import shutil
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+
+__version__ = "1.0.0"
 
 
 SUPPORTED_EXTENSIONS = {
@@ -32,20 +32,26 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+    )
+
+    parser.add_argument(
         "directory",
         type=Path,
         help="Directory containing the song files",
     )
 
-    parser.add_argument(
+    directory_count_group = parser.add_mutually_exclusive_group()
+
+    directory_count_group.add_argument(
         "--directories",
         type=int,
-        help=(
-            "Override the automatically calculated number of directories"
-        ),
+        help=("Override the automatically calculated number of directories"),
     )
 
-    parser.add_argument(
+    directory_count_group.add_argument(
         "--files-per-directory",
         type=int,
         help=(
@@ -105,30 +111,20 @@ def calculate_directory_count(
 ) -> tuple[int, str]:
     if requested_directories is not None:
         if requested_directories < 1:
-            raise ValueError(
-                "--directories must be a positive integer"
-            )
+            raise ValueError("--directories must be a positive integer")
 
         if requested_directories > file_count:
-            raise ValueError(
-                "--directories cannot exceed the number of files"
-            )
+            raise ValueError("--directories cannot exceed the number of files")
 
         return requested_directories, "manual override"
 
     if files_per_directory is not None:
         if files_per_directory < 1:
-            raise ValueError(
-                "--files-per-directory must be a positive integer"
-            )
+            raise ValueError("--files-per-directory must be a positive integer")
 
-        directory_count = math.ceil(
-            file_count / files_per_directory
-        )
+        directory_count = math.ceil(file_count / files_per_directory)
 
-        return directory_count, (
-            f"maximum {files_per_directory} files per directory"
-        )
+        return directory_count, (f"maximum {files_per_directory} files per directory")
 
     directory_count = max(1, round(math.sqrt(file_count)))
 
@@ -153,8 +149,7 @@ def calculate_capacities(
     base, remainder = divmod(file_count, directory_count)
 
     capacities = [
-        base + (1 if index < remainder else 0)
-        for index in range(directory_count)
+        base + (1 if index < remainder else 0) for index in range(directory_count)
     ]
 
     random.shuffle(capacities)
@@ -204,13 +199,9 @@ def distribute_files(
         reverse=True,
     )
 
-    directories: list[list[Path]] = [
-        [] for _ in capacities
-    ]
+    directories: list[list[Path]] = [[] for _ in capacities]
 
-    artist_counts: list[Counter[str]] = [
-        Counter() for _ in capacities
-    ]
+    artist_counts: list[Counter[str]] = [Counter() for _ in capacities]
 
     for artist, artist_files in artist_groups:
         for file in artist_files:
@@ -221,9 +212,7 @@ def distribute_files(
             ]
 
             if not available:
-                raise RuntimeError(
-                    "No output directory has available space"
-                )
+                raise RuntimeError("No output directory has available space")
 
             random.shuffle(available)
 
@@ -254,14 +243,11 @@ def check_output_directories(
 
         if not output_directory.is_dir():
             raise RuntimeError(
-                f"Output path exists but is not a directory: "
-                f"{output_directory}"
+                f"Output path exists but is not a directory: {output_directory}"
             )
 
         if any(output_directory.iterdir()):
-            raise RuntimeError(
-                f"Output directory is not empty: {output_directory}"
-            )
+            raise RuntimeError(f"Output directory is not empty: {output_directory}")
 
 
 def show_plan(
@@ -270,22 +256,13 @@ def show_plan(
     print()
 
     for index, files in enumerate(directories, start=1):
-        artists = Counter(
-            get_artist(file.name)
-            for file in files
-        )
+        artists = Counter(get_artist(file.name) for file in files)
 
         repeated_artists = {
-            artist: count
-            for artist, count in artists.items()
-            if count > 1
+            artist: count for artist, count in artists.items() if count > 1
         }
 
-        print(
-            f"{index:03d}: "
-            f"{len(files)} songs, "
-            f"{len(artists)} distinct artist names"
-        )
+        print(f"{index:03d}: {len(files)} songs, {len(artists)} distinct artist names")
 
         if repeated_artists:
             repeated = ", ".join(
@@ -307,11 +284,7 @@ def prepare_output(
     directories: list[list[Path]],
     mode: str,
 ) -> None:
-    operation = (
-        shutil.copy2
-        if mode == "copy"
-        else shutil.move
-    )
+    operation = shutil.copy2 if mode == "copy" else shutil.move
 
     created_directories: list[Path] = []
 
@@ -320,12 +293,15 @@ def prepare_output(
             directories,
             start=1,
         ):
-            output_directory = (
-                parent / f"{directory_number:03d}"
-            )
+            output_directory = parent / f"{directory_number:03d}"
 
-            output_directory.mkdir()
-            created_directories.append(output_directory)
+            # check_output_directories() already verified that an existing
+            # path here is an empty directory, so reusing it is safe. Only
+            # track directories we create so rollback never deletes a
+            # directory the user already had.
+            if not output_directory.exists():
+                output_directory.mkdir()
+                created_directories.append(output_directory)
 
             # Random playback order inside each directory.
             random.shuffle(files)
@@ -336,32 +312,34 @@ def prepare_output(
                 files,
                 start=1,
             ):
-                destination_name = (
-                    f"{position:0{width}d}-{source.name}"
-                )
+                destination_name = f"{position:0{width}d}-{source.name}"
 
-                destination = (
-                    output_directory / destination_name
-                )
+                destination = output_directory / destination_name
 
                 if destination.exists():
-                    raise RuntimeError(
-                        f"Destination already exists: "
-                        f"{destination}"
-                    )
+                    raise RuntimeError(f"Destination already exists: {destination}")
 
                 operation(source, destination)
 
     except Exception:
         if mode == "copy":
+            # Copies are safe to undo: remove the directories we created.
             for directory in reversed(created_directories):
                 shutil.rmtree(directory, ignore_errors=True)
+        else:
+            # Moves cannot be safely undone automatically.
+            print(
+                "Warning: the move was interrupted. Some files may already "
+                "have been moved into the output directories.",
+                file=sys.stderr,
+            )
 
         raise
 
 
 def find_input_files(
     source_directory: Path,
+    *,
     all_files: bool,
 ) -> list[Path]:
     files = []
@@ -373,31 +351,22 @@ def find_input_files(
         if all_files or path.suffix.casefold() in SUPPORTED_EXTENSIONS:
             files.append(path)
 
+    # Sort for a deterministic starting order. Every shuffle downstream
+    # depends on this order, so sorting is what makes --seed reproducible
+    # regardless of the (filesystem-dependent) order iterdir() returns.
+    files.sort(key=lambda path: path.name)
+
     return files
 
 
 def main() -> int:
     args = parse_arguments()
 
-    source_directory = (
-        args.directory.expanduser().resolve()
-    )
+    source_directory = args.directory.expanduser().resolve()
 
     if not source_directory.is_dir():
         print(
-            f"Error: directory does not exist: "
-            f"{source_directory}",
-            file=sys.stderr,
-        )
-        return 1
-
-    if (
-        args.directories is not None
-        and args.files_per_directory is not None
-    ):
-        print(
-            "Error: use either --directories or "
-            "--files-per-directory, not both.",
+            f"Error: directory does not exist: {source_directory}",
             file=sys.stderr,
         )
         return 1
@@ -407,19 +376,17 @@ def main() -> int:
 
     files = find_input_files(
         source_directory,
-        args.all_files,
+        all_files=args.all_files,
     )
 
     if not files:
         print("No matching files found.")
         return 0
 
-    directory_count, calculation_method = (
-        calculate_directory_count(
-            file_count=len(files),
-            requested_directories=args.directories,
-            files_per_directory=args.files_per_directory,
-        )
+    directory_count, calculation_method = calculate_directory_count(
+        file_count=len(files),
+        requested_directories=args.directories,
+        files_per_directory=args.files_per_directory,
     )
 
     capacities = calculate_capacities(
@@ -460,11 +427,10 @@ def main() -> int:
         args.mode,
     )
 
+    past_tense = "Copied" if args.mode == "copy" else "Moved"
+
     print()
-    print(
-        f"{args.mode.capitalize()}d {len(files)} files "
-        f"into {directory_count} directories."
-    )
+    print(f"{past_tense} {len(files)} files into {directory_count} directories.")
 
     return 0
 
@@ -477,10 +443,10 @@ if __name__ == "__main__":
             "\nInterrupted.",
             file=sys.stderr,
         )
-        raise SystemExit(130)
+        raise SystemExit(130) from None
     except Exception as error:
         print(
             f"Error: {error}",
             file=sys.stderr,
         )
-        raise SystemExit(1)
+        raise SystemExit(1) from error

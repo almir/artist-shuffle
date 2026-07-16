@@ -1,0 +1,5 @@
+# Development-only dependencies. The tool itself needs nothing but the
+# Python standard library.
+pytest>=7.0
+ruff>=0.4
+pre-commit>=3.5
