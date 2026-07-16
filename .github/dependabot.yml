@@ -1,4 +1,4 @@
-# Set update schedule for GitHub Actions and Python development dependencies
+# Set update schedule for GitHub Actions, Python dependencies, and pre-commit hooks
 version: 2
 updates:
   - package-ecosystem: "github-actions"
@@ -7,6 +7,11 @@ updates:
       interval: "weekly"
 
   - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "pre-commit"
     directory: "/"
     schedule:
       interval: "weekly"
