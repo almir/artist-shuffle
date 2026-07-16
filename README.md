@@ -231,7 +231,7 @@ ruff check .
 ruff format --check .
 ```
 
-All of these run automatically on every push and pull request via GitHub Actions across Python 3.12 and 3.13.
+All of these run automatically on every push and pull request via GitHub Actions across Python 3.12, 3.13, and 3.14.
 
 ## Project Structure
 
@@ -239,7 +239,7 @@ All of these run automatically on every push and pull request via GitHub Actions
 artist-shuffle/
 ├── artist-shuffle.py        # the tool (standard library only)
 ├── tests/                   # pytest test suite
-├── .github/workflows/ci.yml # lint, format check + test on Python 3.12–3.13
+├── .github/workflows/ci.yml # lint, format check + test on Python 3.12–3.14
 ├── .github/dependabot.yml   # weekly action + dependency updates
 ├── .pre-commit-config.yaml  # local hooks mirroring CI
 ├── .python-version          # pinned Python version for local tooling
