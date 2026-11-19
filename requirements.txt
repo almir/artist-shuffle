@@ -1,5 +1,5 @@
 # Development-only dependencies. The tool itself needs nothing but the
 # Python standard library.
-pytest>=9.1.1
+pytest>=9.2.0
 ruff>=0.17.0
 pre-commit>=4.7.0
